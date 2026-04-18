@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { ChangePasswordDialog } from "./change-password-dialog";
 import type { View, User } from "@/lib/types";
 
 interface NavigationProps {
@@ -47,11 +48,12 @@ export function Navigation({
                 onClick={() => onViewChange("habits")}
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                   currentView === "habits"
-                    ? "bg-secondary text-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                  ? "bg-secondary text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
                 }`}
               >
                 <span className="flex items-center gap-2">
+                  <ChangePasswordDialog />
                   <svg
                     className="h-4 w-4"
                     fill="none"
