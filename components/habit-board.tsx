@@ -151,7 +151,9 @@ export function HabitBoard({ currentUser }: HabitBoardProps) {
                 <tr className="border-b">
                   <th className="p-4 text-left font-medium text-muted-foreground">Member</th>
                   {displayedDays.map((day) => (
-  <th key={day} className="p-4 text-center text-xs font-medium text-muted-foreground min-w-[100px]"></th>
+  <th key={day} className="p-4 text-center text-xs font-medium text-muted-foreground min-w-[120px]">
+    {formatDayLabel(day)}
+  </th>
 ))}
                 </tr>
               </thead>
@@ -169,6 +171,7 @@ export function HabitBoard({ currentUser }: HabitBoardProps) {
                         const status = entry?.status;
                         const isActive = activeCell?.date === day && activeCell?.userId === user.id;
 
+                        // Tampilan untuk orang lain (View Only)
                         if (!isCurrentUser) {
                           return (
                             <td key={day} className="p-2 px-10 text-center">
@@ -179,8 +182,9 @@ export function HabitBoard({ currentUser }: HabitBoardProps) {
                           );
                         }
 
+                        // Tampilan untuk diri sendiri (Interaktif)
                         return (
-                          <td key={day} className="p-2 text-center">
+                          <td key={day} className="p-2 px-10 text-center">
                             <Popover open={isActive} onOpenChange={(o) => !o && setActiveCell(null)}>
                               <PopoverTrigger asChild>
                                 <button onClick={() => setActiveCell({ habitId: selectedHabit.id, date: day, userId: user.id })}
