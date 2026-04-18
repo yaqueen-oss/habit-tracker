@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
-import { formatDate, getLast14Days } from "@/lib/storage"; // Pastikan fungsi format tanggal ini ada
+import { formatDate, getLast14Days } from "@/lib/storage"; 
 import type { User } from "@/lib/types";
 
 interface HabitBoardProps {
@@ -22,13 +22,14 @@ export function HabitBoard({ currentUser }: HabitBoardProps) {
   const [entries, setEntries] = useState<any[]>([]);
   const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
   const [newHabitTitle, setNewHabitTitle] = useState("");
+  // FITUR BARU: State untuk tanggal mulai
+  const [newHabitStartDate, setNewHabitStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeCell, setActiveCell] = useState<any>(null);
   const [missedReason, setMissedReason] = useState("");
   const [showReasonInput, setShowReasonInput] = useState(false);
   const days = getLast14Days();
 
-  // Fetch Data dari Supabase
   const fetchData = async () => {
     const { data: habitsData } = await supabase.from("habits").select("*").order("created_at", { ascending: true });
     const { data: entriesData } = await supabase.from("habit_entries").select("*");
@@ -43,38 +44,53 @@ export function HabitBoard({ currentUser }: HabitBoardProps) {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 3000); // Sinkronisasi tiap 3 detik
+    const interval = setInterval(fetchData, 5000); // Ubah ke 5 detik biar nggak terlalu berat
     return () => clearInterval(interval);
   }, [selectedHabitId]);
 
-  // Kumpulkan semua User yang aktif + Diri Sendiri
   const activeUsersMap = new Map();
-  activeUsersMap.set(currentUser.id, { id: currentUser.id, username: currentUser.username });
-  entries.forEach((e) => activeUsersMap.set(e.user_id, { id: e.user_id, username: e.username }));
+  // PERBAIKAN: Gunakan nickname jika ada
+  const myName = currentUser.nickname || currentUser.username || "User";
+  activeUsersMap.set(currentUser.id, { id: currentUser.id, username: myName });
+  
+  entries.forEach((e) => {
+    activeUsersMap.set(e.user_id, { id: e.user_id, username: e.username || "Member" });
+  });
   const users = Array.from(activeUsersMap.values());
 
   const selectedHabit = habits.find((h) => h.id === selectedHabitId);
 
   const handleAddHabit = async () => {
     if (!newHabitTitle.trim()) return;
-    const { data } = await supabase.from("habits").insert([{ title: newHabitTitle, created_by: currentUser.id }]).select();
+    
+    // Kirim start_date ke Supabase
+    const { data } = await supabase.from("habits").insert([
+      { 
+        title: newHabitTitle, 
+        created_by: currentUser.id,
+        start_date: newHabitStartDate // Kolom baru kita
+      }
+    ]).select();
+
     if (data) {
       setHabits([...habits, data[0]]);
       setSelectedHabitId(data[0].id);
     }
     setNewHabitTitle("");
+    setNewHabitStartDate(new Date().toISOString().split('T')[0]); // Reset ke hari ini
     setDialogOpen(false);
   };
 
   const handleDeleteHabit = async (habitId: string) => {
-    await supabase.from("habits").delete().eq("id", habitId);
-    fetchData();
+    if (confirm("Yakin mau hapus habit ini? Semua centangan tim akan hilang.")) {
+      await supabase.from("habits").delete().eq("id", habitId);
+      fetchData();
+    }
   };
 
   const handleSaveEntry = async (status: string, reason: string = "") => {
     if (!activeCell) return;
     
-    // Cek apakah sudah ada centangan di hari itu
     const existing = entries.find(e => e.habit_id === activeCell.habitId && e.date === activeCell.date && e.user_id === currentUser.id);
 
     if (existing) {
@@ -83,7 +99,7 @@ export function HabitBoard({ currentUser }: HabitBoardProps) {
       await supabase.from("habit_entries").insert([{
         habit_id: activeCell.habitId,
         user_id: currentUser.id,
-        username: currentUser.username,
+        username: myName,
         date: activeCell.date,
         status,
         reason
@@ -93,7 +109,7 @@ export function HabitBoard({ currentUser }: HabitBoardProps) {
     setActiveCell(null);
     setShowReasonInput(false);
     setMissedReason("");
-    fetchData(); // Refresh UI
+    fetchData();
   };
 
   const getCellEntry = (habitId: string, date: string, userId: string) => {
@@ -114,12 +130,11 @@ export function HabitBoard({ currentUser }: HabitBoardProps) {
     yesterday.setDate(yesterday.getDate() - 1);
     if (formatDate(date) === formatDate(today)) return "Today";
     if (formatDate(date) === formatDate(yesterday)) return "Yest.";
-    return date.toLocaleDateString("en-US", { weekday: "short", day: "numeric" });
+    return date.toLocaleDateString("id-ID", { weekday: "short", day: "numeric" });
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Team Accountability</h1>
@@ -146,6 +161,18 @@ export function HabitBoard({ currentUser }: HabitBoardProps) {
                   <Label>Habit Title</Label>
                   <Input value={newHabitTitle} onChange={(e) => setNewHabitTitle(e.target.value)} placeholder="e.g., Tahajud" />
                 </div>
+                
+                {/* INPUT TANGGAL BARU */}
+                <div className="space-y-2">
+                  <Label>Tanggal Mulai</Label>
+                  <Input 
+                    type="date" 
+                    value={newHabitStartDate} 
+                    onChange={(e) => setNewHabitStartDate(e.target.value)} 
+                  />
+                  <p className="text-[10px] text-muted-foreground">Habit akan dihitung mulai tanggal ini.</p>
+                </div>
+
                 <Button onClick={handleAddHabit} className="w-full">Create Habit</Button>
               </div>
             </DialogContent>
@@ -153,13 +180,17 @@ export function HabitBoard({ currentUser }: HabitBoardProps) {
         </div>
       </div>
 
-      {/* Team Progress Bar */}
       {selectedHabit && (
         <Card className="border-0 shadow-sm bg-card">
           <CardHeader className="pb-3">
             <div className="flex justify-between items-center">
-              <CardTitle className="text-base">Progress: {selectedHabit.title}</CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => handleDeleteHabit(selectedHabit.id)} className="text-destructive">Delete</Button>
+              <div>
+                <CardTitle className="text-base">Progress: {selectedHabit.title}</CardTitle>
+                <p className="text-[10px] text-muted-foreground">Mulai: {new Date(selectedHabit.start_date).toLocaleDateString('id-ID')}</p>
+              </div>
+              {selectedHabit.created_by === currentUser.id && (
+                <Button variant="ghost" size="sm" onClick={() => handleDeleteHabit(selectedHabit.id)} className="text-destructive">Delete</Button>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -170,7 +201,7 @@ export function HabitBoard({ currentUser }: HabitBoardProps) {
                   <div key={user.id} className="flex items-center gap-3">
                     <span className="text-sm text-muted-foreground w-5">{i + 1}</span>
                     <div className="h-7 w-7 rounded-full bg-secondary flex items-center justify-center">
-                      <span className="text-xs">{user.username.charAt(0).toUpperCase()}</span>
+                      <span className="text-xs">{(user.username || "U").charAt(0).toUpperCase()}</span>
                     </div>
                     <div className="flex-1">
                       <div className="flex justify-between text-sm mb-1">
@@ -189,7 +220,6 @@ export function HabitBoard({ currentUser }: HabitBoardProps) {
         </Card>
       )}
 
-      {/* Matrix Table */}
       {selectedHabit && (
         <Card className="border-0 shadow-sm bg-card overflow-x-auto">
           <CardContent className="p-0">
@@ -208,7 +238,7 @@ export function HabitBoard({ currentUser }: HabitBoardProps) {
                   return (
                     <tr key={user.id} className="border-b last:border-0 hover:bg-muted/50">
                       <td className="p-4 font-medium flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-full bg-secondary flex items-center justify-center text-xs">{user.username.charAt(0).toUpperCase()}</div>
+                        <div className="h-6 w-6 rounded-full bg-secondary flex items-center justify-center text-xs">{(user.username || "U").charAt(0).toUpperCase()}</div>
                         {user.username}
                       </td>
                       {days.map((day) => {
@@ -217,7 +247,6 @@ export function HabitBoard({ currentUser }: HabitBoardProps) {
                         const isActive = activeCell?.date === day && activeCell?.userId === user.id;
 
                         if (!isCurrentUser) {
-                          // View Only untuk teman
                           return (
                             <td key={day} className="p-2 text-center">
                               <div className={`w-8 h-8 mx-auto rounded flex items-center justify-center ${status === 'done' ? 'bg-green-500 text-white' : status === 'missed' ? 'bg-red-500 text-white' : 'bg-secondary'}`}>
@@ -228,7 +257,6 @@ export function HabitBoard({ currentUser }: HabitBoardProps) {
                           );
                         }
 
-                        // Interaktif untuk diri sendiri
                         return (
                           <td key={day} className="p-2 text-center">
                             <Popover open={isActive} onOpenChange={(open) => !open && setActiveCell(null)}>
@@ -249,10 +277,10 @@ export function HabitBoard({ currentUser }: HabitBoardProps) {
                                   </div>
                                 ) : (
                                   <div className="space-y-2">
-                                    <Textarea value={missedReason} onChange={(e) => setMissedReason(e.target.value)} placeholder="Reason..." className="text-sm h-16" />
+                                    <Textarea value={missedReason} onChange={(e) => setMissedReason(e.target.value)} placeholder="Alasan nggak masuk..." className="text-sm h-16" />
                                     <div className="flex gap-2">
-                                      <Button size="sm" variant="outline" className="flex-1" onClick={() => setShowReasonInput(false)}>Cancel</Button>
-                                      <Button size="sm" variant="destructive" className="flex-1" onClick={() => handleSaveEntry("missed", missedReason)}>Save</Button>
+                                      <Button size="sm" variant="outline" className="flex-1" onClick={() => setShowReasonInput(false)}>Batal</Button>
+                                      <Button size="sm" variant="destructive" className="flex-1" onClick={() => handleSaveEntry("missed", missedReason)}>Simpan</Button>
                                     </div>
                                   </div>
                                 )}
