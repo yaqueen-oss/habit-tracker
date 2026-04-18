@@ -146,11 +146,13 @@ export function HabitBoard({ currentUser }: HabitBoardProps) {
       {selectedHabit && (
         <Card className="border-0 shadow-sm bg-card overflow-x-auto">
           <CardContent className="p-0">
-            <table className="w-full min-w-[600px] border-collapse">
+           <table className="w-auto border-collapse">
               <thead>
                 <tr className="border-b">
                   <th className="p-4 text-left font-medium text-muted-foreground">Member</th>
-                  {displayedDays.map((day) => <th key={day} className="p-2 text-center text-xs font-medium text-muted-foreground">{formatDayLabel(day)}</th>)}
+                  {displayedDays.map((day) => (
+  <th key={day} className="p-4 text-center text-xs font-medium text-muted-foreground min-w-[100px]"></th>
+))}
                 </tr>
               </thead>
               <tbody>
@@ -169,7 +171,7 @@ export function HabitBoard({ currentUser }: HabitBoardProps) {
 
                         if (!isCurrentUser) {
                           return (
-                            <td key={day} className="p-2 text-center">
+                            <td key={day} className="p-2 px-10 text-center">
                               <div className={`w-8 h-8 mx-auto rounded flex items-center justify-center ${status === 'done' ? 'bg-green-500 text-white' : status === 'missed' ? 'bg-red-500 text-white' : 'bg-secondary'}`}>
                                 {status === 'done' && '✓'} {status === 'missed' && '✕'}
                               </div>
